@@ -326,11 +326,18 @@
     }
 
     if (parsed.linkHost) {
+      var safety = parsed.safety || { level: 'ok', reasons: [] };
       var notice = document.createElement('p');
       notice.className = 'link-notice';
       notice.innerHTML = 'This link points to <code></code>. Only open links from sources you trust.';
       notice.querySelector('code').textContent = parsed.linkHost;
       content.appendChild(notice);
+      safety.reasons.forEach(function (r) {
+        var warn = document.createElement('p');
+        warn.className = 'link-notice link-notice-' + r.level;
+        warn.textContent = (r.level === 'danger' ? 'Risk: ' : 'Caution: ') + r.message;
+        content.appendChild(warn);
+      });
     }
 
     var actions = el['result-actions'];

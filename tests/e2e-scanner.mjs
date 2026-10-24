@@ -168,6 +168,24 @@ check('隐藏网络回填', await evalJs(`document.getElementById('f-hidden').ch
 check('payload 重建一致', await evalJs(`window.QRGenerator.currentPayload()`) === 'WIFI:T:WPA;S:RoundTrip;P:abc123;H:true;;');
 check('预览已渲染', await evalJs(`!!document.querySelector('#qr-preview canvas')`));
 
+/* ---------- G2. URL safety heuristics ---------- */
+console.log('\n[G2] URL 安全启发式');
+await evalJs(`document.querySelector('.tab[data-tab="scan"]').click()`);
+await sleep(300);
+const phishPath = await makeQrFile('https://trusted.com@evil.example/login', 'phish.png');
+await uploadToImageInput(phishPath);
+check('userinfo 欺骗渲染 danger 提示', await evalJs(`!!document.querySelector('#result-content .link-notice-danger')`));
+check('danger 文案提示 @ 欺骗', (await evalJs(`document.getElementById('result-content').textContent`)).includes('Risk:'));
+const shortPath = await makeQrFile('https://bit.ly/3xAbC1', 'short.png');
+await uploadToImageInput(shortPath);
+check('短链渲染 warn 提示', await evalJs(`!!document.querySelector('#result-content .link-notice-warn')`));
+check('warn 文案含 shortener', (await evalJs(`document.getElementById('result-content').textContent`)).includes('shortener'));
+check('无 danger 级提示', await evalJs(`!document.querySelector('#result-content .link-notice-danger')`));
+const cleanPath = await makeQrFile('https://example.com/safe', 'clean.png');
+await uploadToImageInput(cleanPath);
+check('干净 https URL 无任何警告', await evalJs(`!document.querySelector('#result-content .link-notice-warn') && !document.querySelector('#result-content .link-notice-danger')`));
+check('域名预览提示仍在', (await evalJs(`document.getElementById('result-content').textContent`)).includes('example.com'));
+
 /* ---------- H. camera UI states (no real camera in headless) ---------- */
 console.log('\n[H] 摄像头 UI');
 await evalJs(`document.querySelector('.tab[data-tab="scan"]').click()`);

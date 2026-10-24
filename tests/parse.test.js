@@ -158,6 +158,49 @@ eq('wifi encode->parse password', r3.form.password, 'p:w,d');
   check('result has form: ' + raw.slice(0, 20), typeof res.form === 'object');
 });
 
+/* ---- URL safety heuristics ---- */
+var su = P.parse('https://trusted.com@evil.example/phish');
+eq('userinfo level', su.safety.level, 'danger');
+check('userinfo reason', su.safety.reasons.some(function (x) { return x.id === 'userinfo'; }));
+
+su = P.parse('https://xn--80ak6aa92e.com/');
+eq('punycode level', su.safety.level, 'danger');
+check('punycode reason', su.safety.reasons.some(function (x) { return x.id === 'lookalike'; }));
+
+su = P.parse('http://192.168.1.1/admin');
+eq('ip host level', su.safety.level, 'danger');
+check('ip reason', su.safety.reasons.some(function (x) { return x.id === 'ip-host'; }));
+check('ip also warns http', su.safety.reasons.some(function (x) { return x.id === 'http'; }));
+
+su = P.parse('https://bit.ly/3xAbC1');
+eq('shortener level', su.safety.level, 'warn');
+check('shortener reason', su.safety.reasons.some(function (x) { return x.id === 'shortener'; }));
+
+su = P.parse('https://www.bit.ly/x');
+check('shortener with www prefix', su.safety.reasons.some(function (x) { return x.id === 'shortener'; }));
+
+su = P.parse('http://example.com/page');
+eq('plain http level', su.safety.level, 'warn');
+check('http reason', su.safety.reasons.some(function (x) { return x.id === 'http'; }));
+
+su = P.parse('https://example.com:8443/x');
+check('non-standard port', su.safety.reasons.some(function (x) { return x.id === 'port'; }));
+
+su = P.parse('https://example.com/page?q=1');
+eq('clean https level', su.safety.level, 'ok');
+eq('clean https no reasons', su.safety.reasons.length, 0);
+
+su = P.parse('https://example.com:443/');
+check('explicit 443 is standard', su.safety.reasons.every(function (x) { return x.id !== 'port'; }));
+
+su = P.parse('just some text');
+check('non-url has no safety', su.safety === undefined);
+
+check('checkUrlSafety exported', typeof P.checkUrlSafety === 'function');
+var direct = P.checkUrlSafety('https://user:pass@10.0.0.1:8080/');
+eq('direct call level', direct.level, 'danger');
+check('direct call multiple reasons', direct.reasons.length >= 3);
+
 console.log('----------------------------------------');
 console.log('PASS: ' + pass + '  FAIL: ' + fail);
 process.exit(fail ? 1 : 0);

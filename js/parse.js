@@ -357,6 +357,70 @@
     };
   }
 
+  /* Generic shortener services where anyone can hide any destination.
+   * Branded shorteners that only point to their own site (youtu.be, lnkd.in)
+   * are deliberately excluded — they do not conceal an arbitrary target. */
+  var SHORTENER_HOSTS = [
+    'bit.ly', 'bitly.com', 'tinyurl.com', 't.co', 'goo.gl', 'ow.ly', 'is.gd',
+    'buff.ly', 'rebrand.ly', 'cutt.ly', 'tiny.cc', 'shorturl.at', 'rb.gy',
+    't.ly', 's.id', 'cli.re', 'bl.ink', 'short.io', 'snip.ly', 'qr.ae',
+    'tiny.one', 'url.shortener', 'soo.gd', 'clicky.me'
+  ];
+
+  /**
+   * Local heuristic safety check for a scanned URL. No network calls —
+   * pattern matching only. Returns { level: 'ok'|'warn'|'danger', reasons: [] }.
+   */
+  function checkUrlSafety(rawUrl) {
+    var reasons = [];
+    var u;
+    try { u = new URL(rawUrl); } catch (e) { return { level: 'ok', reasons: reasons }; }
+    var host = u.hostname || '';
+
+    if (u.username || u.password) {
+      reasons.push({
+        id: 'userinfo', level: 'danger',
+        message: 'The address hides its real destination behind an "@" sign — the part before it is ignored by the browser.'
+      });
+    }
+    if (/(^|\.)xn--/i.test(host) || /[^\x00-\x7F]/.test(host)) {
+      reasons.push({
+        id: 'lookalike', level: 'danger',
+        message: 'The domain uses internationalized look-alike characters that can imitate a well-known site.'
+      });
+    }
+    if (/^\d{1,3}(\.\d{1,3}){3}$/.test(host) || host.indexOf(':') >= 0) {
+      reasons.push({
+        id: 'ip-host', level: 'danger',
+        message: 'The link points to a raw IP address instead of a domain name.'
+      });
+    }
+    var bare = host.replace(/^www\./i, '').toLowerCase();
+    if (SHORTENER_HOSTS.indexOf(bare) >= 0) {
+      reasons.push({
+        id: 'shortener', level: 'warn',
+        message: 'URL shortener — the real destination stays hidden until the link is opened.'
+      });
+    }
+    if (u.protocol === 'http:') {
+      reasons.push({
+        id: 'http', level: 'warn',
+        message: 'Not encrypted (http instead of https) — the connection can be intercepted.'
+      });
+    }
+    if (u.port && u.port !== '80' && u.port !== '443') {
+      reasons.push({
+        id: 'port', level: 'warn',
+        message: 'Uses a non-standard port (:' + u.port + ').'
+      });
+    }
+
+    var level = 'ok';
+    reasons.forEach(function (r) { if (r.level === 'danger') level = 'danger'; });
+    if (level === 'ok' && reasons.length) level = 'warn';
+    return { level: level, reasons: reasons };
+  }
+
   function parseUrl(raw) {
     var host = '';
     try { host = new URL(raw).hostname; } catch (e) { /* keep empty */ }
@@ -366,6 +430,7 @@
       summary: raw,
       fields: host ? [{ label: 'Link', value: raw, mono: true }] : [],
       linkHost: host,
+      safety: checkUrlSafety(raw),
       form: { url: raw },
       actions: [
         { id: 'open', kind: 'link', label: 'Open link', url: raw },
@@ -469,6 +534,7 @@
     parse: parse,
     buildVcard: buildVcard,
     escapeField: escapeField,
-    unescapeField: unescapeField
+    unescapeField: unescapeField,
+    checkUrlSafety: checkUrlSafety
   };
 })(typeof window !== 'undefined' ? window : globalThis);

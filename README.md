@@ -17,6 +17,7 @@ Private, browser-only **QR code generator & scanner**. No backend, no uploads, n
 - Camera scanning (jsQR, device switching, flashlight where supported)
 - Image scanning via file picker, drag & drop, or clipboard paste
 - Smart result parsing: Wi-Fi credentials, vCard (save `.vcf`), events, geo (Google Maps), mailto / SMS / tel, URLs with host preview
+- Local safety heuristics on scanned URLs: `@`-userinfo deception, punycode look-alike domains and raw IP hosts flagged as **Risk**; known shorteners, plain http and non-standard ports flagged as **Caution** — all offline, no reputation API
 - Local history (localStorage, max 100 entries) with re-show and "Edit as new QR code" round-trip
 
 **General**
